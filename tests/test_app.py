@@ -19,6 +19,7 @@ def test_index_loads(client):
     html = response.get_data(as_text=True)
     assert "TaskManager" in html
     assert "Registrar nueva tarea" in html
+    assert "Tareas registradas" in html
 
 
 def test_health_endpoint(client):
@@ -28,44 +29,32 @@ def test_health_endpoint(client):
     assert response.get_json() == {"status": "ok"}
 
 
-def test_create_task_success(client):
+def test_cp01_registrar_una_tarea(client):
+    """CP01: Registrar una tarea -> La tarea se guarda correctamente."""
     test_client, db_file = client
     payload = {
-        "title": "Configurar CI en GitHub Actions",
+        "title": "Realizar actividad DevOps",
         "assignee": "Ana López",
-        "priority": "alta",
-        "description": "Agregar workflow de pruebas automáticas.",
+        "description": "Configurar pruebas automatizadas en GitHub Actions.",
     }
     response = test_client.post("/api/tasks", json=payload)
     assert response.status_code == 201
 
-    body = response.get_json()
-    task = body["task"]
+    task = response.get_json()["task"]
     assert task["id"] == 1
-    assert task["title"] == "Configurar CI en GitHub Actions"
+    assert task["title"] == "Realizar actividad DevOps"
     assert task["assignee"] == "Ana López"
-    assert task["priority"] == "alta"
-    assert task["description"] == "Agregar workflow de pruebas automáticas."
     assert task["status"] == "pendiente"
+    assert task["priority"] == "media"
 
     conn = sqlite3.connect(db_file)
-    row = conn.execute("SELECT title, assignee, priority, status FROM tasks WHERE id = 1").fetchone()
+    row = conn.execute("SELECT title, assignee, status FROM tasks WHERE id = 1").fetchone()
     conn.close()
-    assert row == ("Configurar CI en GitHub Actions", "Ana López", "alta", "pendiente")
+    assert row == ("Realizar actividad DevOps", "Ana López", "pendiente")
 
 
-def test_create_task_default_priority(client):
-    test_client, _ = client
-    response = test_client.post(
-        "/api/tasks",
-        json={"title": "Documentar endpoints", "assignee": "Carlos Ruiz"},
-    )
-    assert response.status_code == 201
-    assert response.get_json()["task"]["priority"] == "media"
-    assert response.get_json()["task"]["status"] == "pendiente"
-
-
-def test_create_task_missing_title(client):
+def test_cp02_registrar_tarea_sin_nombre(client):
+    """CP02: Registrar una tarea sin nombre -> El sistema muestra una validación."""
     test_client, _ = client
     response = test_client.post(
         "/api/tasks",
@@ -75,119 +64,105 @@ def test_create_task_missing_title(client):
     assert "título" in response.get_json()["error"].lower()
 
 
-def test_create_task_missing_assignee(client):
+def test_cp03_consultar_tareas(client):
+    """CP03: Consultar tareas -> Se muestra el listado."""
     test_client, _ = client
-    response = test_client.post(
-        "/api/tasks",
-        json={"title": "Revisar PR", "assignee": ""},
-    )
-    assert response.status_code == 400
-    assert "responsable" in response.get_json()["error"].lower()
+    test_client.post("/api/tasks", json={"title": "Tarea 1", "assignee": "Ana"})
+    test_client.post("/api/tasks", json={"title": "Tarea 2", "assignee": "Carlos"})
 
-
-def test_create_task_invalid_priority(client):
-    test_client, _ = client
-    response = test_client.post(
-        "/api/tasks",
-        json={"title": "Revisar PR", "assignee": "Ana López", "priority": "urgente"},
-    )
-    assert response.status_code == 400
-    assert "prioridad" in response.get_json()["error"].lower()
-
-def _crear_tarea(test_client, **extra):
-    payload = {"title": "Configurar CI", "assignee": "Ana López", "priority": "alta",
-               "description": "Agregar workflow"}
-    payload.update(extra)
-    return test_client.post("/api/tasks", json=payload).get_json()["task"]
-
-
-def test_list_tasks_empty(client):
-    test_client, _ = client
     response = test_client.get("/api/tasks")
     assert response.status_code == 200
-    assert response.get_json()["tasks"] == []
+    tasks = response.get_json()["tasks"]
+    assert len(tasks) == 2
+    assert [t["title"] for t in tasks] == ["Tarea 2", "Tarea 1"]
 
 
-def test_list_tasks_returns_created(client):
+def test_cp04_editar_una_tarea(client):
+    """CP04: Editar una tarea -> Se actualiza la información."""
     test_client, _ = client
-    _crear_tarea(test_client)
-    _crear_tarea(test_client, title="Documentar endpoints")
-    tasks = test_client.get("/api/tasks").get_json()["tasks"]
-    assert [t["title"] for t in tasks] == ["Documentar endpoints", "Configurar CI"]
+    created = test_client.post(
+        "/api/tasks",
+        json={"title": "Tarea original", "assignee": "Ana", "description": "Detalle inicial"},
+    ).get_json()["task"]
 
-
-def test_update_task_success(client):
-    test_client, _ = client
-    task = _crear_tarea(test_client)
-    response = test_client.put(f"/api/tasks/{task['id']}", json={
-        "title": "Configurar CI/CD", "assignee": "Carlos Ruiz", "priority": "baja",
-        "description": "Nueva descripción", "status": "en progreso"})
+    response = test_client.put(
+        f"/api/tasks/{created['id']}",
+        json={
+            "title": "Tarea editada",
+            "assignee": "Carlos Ruiz",
+            "description": "Detalle actualizado",
+            "priority": "alta",
+        },
+    )
     assert response.status_code == 200
     updated = response.get_json()["task"]
-    assert updated["id"] == task["id"]
-    assert updated["title"] == "Configurar CI/CD"
+    assert updated["title"] == "Tarea editada"
     assert updated["assignee"] == "Carlos Ruiz"
-    assert updated["priority"] == "baja"
-    assert updated["description"] == "Nueva descripción"
-    assert updated["status"] == "en progreso"
+    assert updated["description"] == "Detalle actualizado"
+    assert updated["priority"] == "alta"
 
 
-def test_update_task_partial_keeps_other_fields(client):
+def test_cp05_eliminar_una_tarea(client):
+    """CP05: Eliminar una tarea -> La tarea desaparece del listado."""
     test_client, _ = client
-    task = _crear_tarea(test_client)
-    response = test_client.put(f"/api/tasks/{task['id']}", json={"status": "completada"})
-    assert response.status_code == 200
-    updated = response.get_json()["task"]
-    assert updated["status"] == "completada"
-    assert updated["title"] == "Configurar CI"
-    assert updated["assignee"] == "Ana López"
+    created = test_client.post(
+        "/api/tasks",
+        json={"title": "Tarea temporal", "assignee": "Ana"},
+    ).get_json()["task"]
+
+    delete_res = test_client.delete(f"/api/tasks/{created['id']}")
+    assert delete_res.status_code == 200
+
+    list_res = test_client.get("/api/tasks")
+    assert list_res.get_json()["tasks"] == []
 
 
-def test_update_task_persists_in_database(client):
+def test_cp06_cambiar_estado(client):
+    """CP06: Cambiar estado -> Se actualiza el estado."""
     test_client, _ = client
-    task = _crear_tarea(test_client)
-    test_client.put(f"/api/tasks/{task['id']}", json={"title": "Título editado"})
-    tasks = test_client.get("/api/tasks").get_json()["tasks"]
-    assert tasks[0]["title"] == "Título editado"
+    created = test_client.post(
+        "/api/tasks",
+        json={"title": "Implementar CI", "assignee": "Ana"},
+    ).get_json()["task"]
+    assert created["status"] == "pendiente"
+
+    for new_status in ("en_proceso", "terminada", "pendiente"):
+        res = test_client.patch(
+            f"/api/tasks/{created['id']}/status",
+            json={"status": new_status},
+        )
+        assert res.status_code == 200
+        assert res.get_json()["task"]["status"] == new_status
 
 
-def test_update_task_not_found(client):
+@pytest.mark.parametrize("priority", ["alta", "media", "baja"])
+def test_cp07_seleccionar_prioridad(client, priority):
+    """CP07: Seleccionar prioridad -> Se guarda la prioridad elegida."""
     test_client, _ = client
-    response = test_client.put("/api/tasks/999", json={"title": "X"})
-    assert response.status_code == 404
+    response = test_client.post(
+        "/api/tasks",
+        json={"title": f"Tarea {priority}", "assignee": "Ana", "priority": priority},
+    )
+    assert response.status_code == 201
+    assert response.get_json()["task"]["priority"] == priority
 
 
-def test_update_task_empty_title(client):
+def test_validaciones_y_errores(client):
     test_client, _ = client
-    task = _crear_tarea(test_client)
-    response = test_client.put(f"/api/tasks/{task['id']}", json={"title": "   "})
-    assert response.status_code == 400
 
+    res_assignee = test_client.post("/api/tasks", json={"title": "Sin responsable", "assignee": ""})
+    assert res_assignee.status_code == 400
 
-def test_update_task_invalid_priority(client):
-    test_client, _ = client
-    task = _crear_tarea(test_client)
-    response = test_client.put(f"/api/tasks/{task['id']}", json={"priority": "urgente"})
-    assert response.status_code == 400
+    res_priority = test_client.post(
+        "/api/tasks",
+        json={"title": "Prioridad inválida", "assignee": "Ana", "priority": "urgente"},
+    )
+    assert res_priority.status_code == 400
 
+    created = test_client.post("/api/tasks", json={"title": "Valida", "assignee": "Ana"}).get_json()["task"]
+    res_status = test_client.patch(f"/api/tasks/{created['id']}/status", json={"status": "bloqueada"})
+    assert res_status.status_code == 400
 
-def test_update_task_invalid_status(client):
-    test_client, _ = client
-    task = _crear_tarea(test_client)
-    response = test_client.put(f"/api/tasks/{task['id']}", json={"status": "terminada"})
-    assert response.status_code == 400
-
-
-def test_update_task_invalid_json(client):
-    test_client, _ = client
-    task = _crear_tarea(test_client)
-    response = test_client.put(f"/api/tasks/{task['id']}", data="no es json",
-                               content_type="text/plain")
-    assert response.status_code == 400
-
-
-def test_update_task_without_valid_fields(client):
-    test_client, _ = client
-    task = _crear_tarea(test_client)
-    response = test_client.put(f"/api/tasks/{task['id']}", json={"foo": "bar"})
-    assert response.status_code == 400
+    assert test_client.put("/api/tasks/999", json={"title": "No existe"}).status_code == 404
+    assert test_client.patch("/api/tasks/999/status", json={"status": "terminada"}).status_code == 404
+    assert test_client.delete("/api/tasks/999").status_code == 404

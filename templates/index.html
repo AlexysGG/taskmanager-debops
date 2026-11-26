@@ -1,117 +1,104 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TaskManager — TechSolutions</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
-  </head>
-  <body>
-    <header class="topbar">
-      <div class="container topbar-content">
-        <div>
-          <h1 class="brand">TaskManager</h1>
-          <p class="subtitle">TechSolutions · Gestión centralizada de tareas</p>
-        </div>
-        <span class="badge">Base v0.1 · RF01</span>
-      </div>
-    </header>
 
-    <main class="container main-content">
-      <section class="card" aria-labelledby="form-title">
-        <div class="card-header">
-          <h2 id="form-title">Registrar nueva tarea</h2>
-          <p>Complete los datos para agregar una actividad al sistema.</p>
-        </div>
 
-        <form id="task-form" novalidate>
-          <div class="form-group">
-            <label for="title"
-              >Título de la tarea <span class="required">*</span></label
-            >
-            <input
-              type="text"
-              id="title"
-              name="title"
-              placeholder="Ej. Configurar pipeline de CI en GitHub Actions"
-              required
-              maxlength="150"
-            />
-          </div>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>TaskManager — TechSolutions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    </head>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="assignee"
-                >Responsable <span class="required">*</span></label
-              >
-              <input
-                type="text"
-                id="assignee"
-                name="assignee"
-                placeholder="Ej. Ana López"
-                required
-                maxlength="100"
-              />
-            </div>
+    <body>
+        <header class="topbar">
+                    <div class="container topbar-content">
+                        <div>
+                            <h1 class="brand">TaskManager</h1>
+                            <p class="subtitle">TechSolutions · Gestión centralizada de tareas</p>
+                        </div>
+                        <span class="badge">v1.0 · RF01–RF06</span>
+                    </div>
+        </header>
 
-            <div class="form-group">
-              <label for="priority">Prioridad</label>
-              <select id="priority" name="priority">
-                <option value="baja">Baja</option>
-                <option value="media" selected>Media</option>
-                <option value="alta">Alta</option>
-              </select>
-            </div>
-          </div>
+        <main class="container main-content">
+                <section class="card" aria-labelledby="form-title">
+                    <div class="card-header">
+                        <h2 id="form-title">Registrar nueva tarea</h2>
+                        <p id="form-subtitle">Complete los datos para agregar una actividad al sistema.</p>
+                    </div>
 
-          <div class="form-group" id="status-group" hidden>
-            <label for="status">Estado</label>
-            <select id="status" name="status">
-              <option value="pendiente">Pendiente</option>
-              <option value="en progreso">En progreso</option>
-              <option value="completada">Completada</option>
-            </select>
-          </div>
+                        <form id="task-form" novalidate>
+                            <input type="hidden" id="task-id" value="">
 
-          <div class="form-group">
-            <label for="description">Descripción</label>
-            <textarea
-              id="description"
-              name="description"
-              rows="3"
-              placeholder="Detalles o criterios de aceptación de la tarea..."
-            ></textarea>
-          </div>
+                                <div class="form-group">
+                                    <label for="title">Título de la tarea <span class="required">*</span></label>
+                                    <input type="text" id="title" name="title"
+                                        placeholder="Ej. Configurar pipeline de CI en GitHub Actions" required
+                                        maxlength="150">
+                                </div>
 
-          <div
-            id="feedback"
-            class="feedback hidden"
-            role="status"
-            aria-live="polite"
-          ></div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="assignee">Responsable <span class="required">*</span></label>
+                                    <input type="text" id="assignee" name="assignee" placeholder="Ej. Ana López"
+                                        required maxlength="100">
+                                </div>
 
-          <div class="form-actions">
-            <button type="submit" id="submit-btn" class="btn-primary">
-              Registrar tarea
-            </button>
-            <button type="button" id="cancel-btn" class="btn-secondary" hidden>
-              Cancelar
-            </button>
-          </div>
-        </form>
-      </section>
+                                <div class="form-group">
+                                    <label for="priority">Prioridad</label>
+                                    <select id="priority" name="priority">
+                                        <option value="baja">Baja</option>
+                                        <option value="media" selected>Media</option>
+                                        <option value="alta">Alta</option>
+                                    </select>
+                                </div>
+                            </div>
 
-      <section class="card" aria-labelledby="list-title">
-        <div class="card-header">
-          <h2 id="list-title">Tareas registradas</h2>
-        </div>
-        <div id="task-list"></div>
-      </section>
-    </main>
+                            <div class="form-group">
+                                <label for="description">Descripción</label>
+                                <textarea id="description" name="description" rows="3"
+                                    placeholder="Detalles o criterios de aceptación de la tarea..."></textarea>
+                            </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-  </body>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-edit-btn" class="btn-secondary hidden">
+                        Cancelar edición
+                    </button>
+                    <button type="submit" id="submit-btn" class="btn-primary">
+                        Registrar tarea
+                    </button>
+                </div>
+                </form>
+            </section>
+
+            <section class="card tasks-section" aria-labelledby="list-title">
+                <div class="tasks-header">
+                    <div>
+                        <h2 id="list-title">Tareas registradas</h2>
+                        <p id="tasks-summary" class="summary-text">Cargando tareas...</p>
+                    </div>
+                    <div class="filters">
+                        <select id="filter-status" aria-label="Filtrar por estado">
+                            <option value="">Todos los estados</option>
+                            <option value="pendiente">Pendiente</option>
+                            <option value="en_proceso">En proceso</option>
+                            <option value="terminada">Terminada</option>
+                        </select>
+                        <select id="filter-priority" aria-label="Filtrar por prioridad">
+                            <option value="">Todas las prioridades</option>
+                            <option value="alta">Alta</option>
+                            <option value="media">Media</option>
+                            <option value="baja">Baja</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="tasks-list" class="tasks-list"></div>
+            </section>
+        </main>
+
+        <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+
 </html>
