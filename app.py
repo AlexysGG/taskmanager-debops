@@ -58,6 +58,7 @@ def create_app(test_config=None):
     app = Flask(__name__)
     app.config.from_mapping(
         DATABASE=os.environ.get("TASKMANAGER_DB", DEFAULT_DB_PATH),
+        SEND_FILE_MAX_AGE_DEFAULT=0,
     )
 
     if test_config is not None:

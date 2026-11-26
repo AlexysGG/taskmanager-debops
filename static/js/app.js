@@ -18,9 +18,18 @@ document.addEventListener("DOMContentLoaded", () => {
         feedback.className = `feedback ${type}`;
     }
 
+    function clearFieldErrors() {
+        form.title.classList.remove("input-error");
+        form.assignee.classList.remove("input-error");
+    }
+
+    form.title.addEventListener("input", () => form.title.classList.remove("input-error"));
+    form.assignee.addEventListener("input", () => form.assignee.classList.remove("input-error"));
+
     function resetFormMode() {
         taskIdInput.value = "";
         form.reset();
+        clearFieldErrors();
         form.priority.value = "media";
         formTitle.textContent = "Registrar nueva tarea";
         formSubtitle.textContent = "Complete los datos para agregar una actividad al sistema.";
@@ -143,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const query = params.toString() ? `?${params.toString()}` : "";
                 try {
-                    const response = await fetch(`/api/tasks${query}`);
+                    const response = await fetch(`/api/tasks${query}`, { cache: "no-store" });
                     const data = await response.json();
                     if (!response.ok) {
                         showFeedback(data.error || "No se pudieron cargar las tareas.", "error");
@@ -196,6 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 form.addEventListener("submit", async (event) => {
                     event.preventDefault();
+                    clearFieldErrors();
 
                     const payload = {
                         title: form.title.value.trim(),
@@ -204,8 +214,17 @@ document.addEventListener("DOMContentLoaded", () => {
                         description: form.description.value.trim(),
                     };
 
-                    if (!payload.title || !payload.assignee) {
-                        showFeedback("Por favor completa el título y el responsable de la tarea.", "error");
+                    if (!payload.title) {
+                        form.title.classList.add("input-error");
+                        form.title.focus();
+                        showFeedback("El título de la tarea es obligatorio.", "error");
+                        return;
+                    }
+
+                    if (!payload.assignee) {
+                        form.assignee.classList.add("input-error");
+                        form.assignee.focus();
+                        showFeedback("El responsable de la tarea es obligatorio.", "error");
                         return;
                     }
 
@@ -227,6 +246,11 @@ try {
     if (!response.ok) {
         showFeedback(data.error || "No se pudo guardar la tarea.", "error");
         return;
+    }
+
+    if (!editingId) {
+        filterStatus.value = "";
+        filterPriority.value = "";
     }
 
     showFeedback(
