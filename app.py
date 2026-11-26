@@ -3,6 +3,8 @@ import sqlite3
 from flask import Flask, g, jsonify, render_template, request
 
 VALID_PRIORITIES = {"alta", "media", "baja"}
+VALID_STATUSES = {"pendiente", "en progreso", "completada"}
+TASK_COLUMNS = "id, title, description, assignee, priority, status, created_at"
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tasks.db")
 
 
@@ -95,6 +97,71 @@ def create_app(test_config=None):
             "message": "Tarea registrada correctamente.",
             "task": dict(row),
         }), 201
+
+    @app.get("/api/tasks")
+    def list_tasks():
+        """Lista todas las tareas, de la más reciente a la más antigua."""
+        rows = get_db().execute(
+            f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY id DESC"
+        ).fetchall()
+        return jsonify({"tasks": [dict(row) for row in rows]}), 200
+
+    @app.put("/api/tasks/<int:task_id>")
+    def update_task(task_id):
+        """Editar una tarea existente (solo se modifican los campos enviados)."""
+        db = get_db()
+        existing = db.execute(
+            f"SELECT {TASK_COLUMNS} FROM tasks WHERE id = ?", (task_id,)
+        ).fetchone()
+        if existing is None:
+            return jsonify({"error": "La tarea no existe."}), 404
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "El cuerpo de la solicitud debe ser JSON válido."}), 400
+
+        updates = {}
+
+        for field, label in (("title", "título"), ("assignee", "responsable")):
+            if field in data:
+                value = data[field]
+                if not isinstance(value, str) or not value.strip():
+                    return jsonify({"error": f"El {label} no puede estar vacío."}), 400
+                updates[field] = value.strip()
+
+        if "description" in data:
+            if not isinstance(data["description"], str):
+                return jsonify({"error": "La descripción debe ser texto."}), 400
+            updates["description"] = data["description"].strip()
+
+        if "priority" in data:
+            priority = data["priority"].strip().lower() if isinstance(data["priority"], str) else ""
+            if priority not in VALID_PRIORITIES:
+                return jsonify({"error": "La prioridad debe ser 'alta', 'media' o 'baja'."}), 400
+            updates["priority"] = priority
+
+        if "status" in data:
+            status = data["status"].strip().lower() if isinstance(data["status"], str) else ""
+            if status not in VALID_STATUSES:
+                return jsonify({"error": "El estado debe ser 'pendiente', 'en progreso' o 'completada'."}), 400
+            updates["status"] = status
+
+        if not updates:
+            return jsonify({"error": "No se enviaron campos válidos para actualizar."}), 400
+
+        set_clause = ", ".join(f"{column} = ?" for column in updates)
+        db.execute(
+            f"UPDATE tasks SET {set_clause} WHERE id = ?",
+            (*updates.values(), task_id),
+        )
+        db.commit()
+
+        row = db.execute(
+            f"SELECT {TASK_COLUMNS} FROM tasks WHERE id = ?", (task_id,)
+        ).fetchone()
+        return jsonify({"message": "Tarea actualizada correctamente.", "task": dict(row)}), 200
+    
+    
 
     return app
 

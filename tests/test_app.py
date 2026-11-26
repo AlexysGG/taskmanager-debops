@@ -93,3 +93,101 @@ def test_create_task_invalid_priority(client):
     )
     assert response.status_code == 400
     assert "prioridad" in response.get_json()["error"].lower()
+
+def _crear_tarea(test_client, **extra):
+    payload = {"title": "Configurar CI", "assignee": "Ana López", "priority": "alta",
+               "description": "Agregar workflow"}
+    payload.update(extra)
+    return test_client.post("/api/tasks", json=payload).get_json()["task"]
+
+
+def test_list_tasks_empty(client):
+    test_client, _ = client
+    response = test_client.get("/api/tasks")
+    assert response.status_code == 200
+    assert response.get_json()["tasks"] == []
+
+
+def test_list_tasks_returns_created(client):
+    test_client, _ = client
+    _crear_tarea(test_client)
+    _crear_tarea(test_client, title="Documentar endpoints")
+    tasks = test_client.get("/api/tasks").get_json()["tasks"]
+    assert [t["title"] for t in tasks] == ["Documentar endpoints", "Configurar CI"]
+
+
+def test_update_task_success(client):
+    test_client, _ = client
+    task = _crear_tarea(test_client)
+    response = test_client.put(f"/api/tasks/{task['id']}", json={
+        "title": "Configurar CI/CD", "assignee": "Carlos Ruiz", "priority": "baja",
+        "description": "Nueva descripción", "status": "en progreso"})
+    assert response.status_code == 200
+    updated = response.get_json()["task"]
+    assert updated["id"] == task["id"]
+    assert updated["title"] == "Configurar CI/CD"
+    assert updated["assignee"] == "Carlos Ruiz"
+    assert updated["priority"] == "baja"
+    assert updated["description"] == "Nueva descripción"
+    assert updated["status"] == "en progreso"
+
+
+def test_update_task_partial_keeps_other_fields(client):
+    test_client, _ = client
+    task = _crear_tarea(test_client)
+    response = test_client.put(f"/api/tasks/{task['id']}", json={"status": "completada"})
+    assert response.status_code == 200
+    updated = response.get_json()["task"]
+    assert updated["status"] == "completada"
+    assert updated["title"] == "Configurar CI"
+    assert updated["assignee"] == "Ana López"
+
+
+def test_update_task_persists_in_database(client):
+    test_client, _ = client
+    task = _crear_tarea(test_client)
+    test_client.put(f"/api/tasks/{task['id']}", json={"title": "Título editado"})
+    tasks = test_client.get("/api/tasks").get_json()["tasks"]
+    assert tasks[0]["title"] == "Título editado"
+
+
+def test_update_task_not_found(client):
+    test_client, _ = client
+    response = test_client.put("/api/tasks/999", json={"title": "X"})
+    assert response.status_code == 404
+
+
+def test_update_task_empty_title(client):
+    test_client, _ = client
+    task = _crear_tarea(test_client)
+    response = test_client.put(f"/api/tasks/{task['id']}", json={"title": "   "})
+    assert response.status_code == 400
+
+
+def test_update_task_invalid_priority(client):
+    test_client, _ = client
+    task = _crear_tarea(test_client)
+    response = test_client.put(f"/api/tasks/{task['id']}", json={"priority": "urgente"})
+    assert response.status_code == 400
+
+
+def test_update_task_invalid_status(client):
+    test_client, _ = client
+    task = _crear_tarea(test_client)
+    response = test_client.put(f"/api/tasks/{task['id']}", json={"status": "terminada"})
+    assert response.status_code == 400
+
+
+def test_update_task_invalid_json(client):
+    test_client, _ = client
+    task = _crear_tarea(test_client)
+    response = test_client.put(f"/api/tasks/{task['id']}", data="no es json",
+                               content_type="text/plain")
+    assert response.status_code == 400
+
+
+def test_update_task_without_valid_fields(client):
+    test_client, _ = client
+    task = _crear_tarea(test_client)
+    response = test_client.put(f"/api/tasks/{task['id']}", json={"foo": "bar"})
+    assert response.status_code == 400
