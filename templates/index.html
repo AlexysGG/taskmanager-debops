@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskManager — TechSolutions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <div class="container topbar-content">
+            <div>
+                <h1 class="brand">TaskManager</h1>
+                <p class="subtitle">TechSolutions · Gestión centralizada de tareas</p>
+            </div>
+            <span class="badge">Base v0.1 · RF01</span>
+        </div>
+    </header>
+
+    <main class="container main-content">
+        <section class="card" aria-labelledby="form-title">
+            <div class="card-header">
+                <h2 id="form-title">Registrar nueva tarea</h2>
+                <p>Complete los datos para agregar una actividad al sistema.</p>
+            </div>
+
+            <form id="task-form" novalidate>
+                <div class="form-group">
+                    <label for="title">Título de la tarea <span class="required">*</span></label>
+                    <input
+                        type="text"
+                        id="title"
+                        name="title"
+                        placeholder="Ej. Configurar pipeline de CI en GitHub Actions"
+                        required
+                        maxlength="150"
+                    >
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="assignee">Responsable <span class="required">*</span></label>
+                        <input
+                            type="text"
+                            id="assignee"
+                            name="assignee"
+                            placeholder="Ej. Ana López"
+                            required
+                            maxlength="100"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="priority">Prioridad</label>
+                        <select id="priority" name="priority">
+                            <option value="baja">Baja</option>
+                            <option value="media" selected>Media</option>
+                            <option value="alta">Alta</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Descripción</label>
+                    <textarea
+                        id="description"
+                        name="description"
+                        rows="3"
+                        placeholder="Detalles o criterios de aceptación de la tarea..."
+                    ></textarea>
+                </div>
+
+                <div id="feedback" class="feedback hidden" role="status" aria-live="polite"></div>
+
+                <div class="form-actions">
+                    <button type="submit" id="submit-btn" class="btn-primary">
+                        Registrar tarea
+                    </button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
